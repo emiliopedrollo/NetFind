@@ -1,0 +1,13 @@
+version: "3"
+
+services:
+  netfind:
+    build:
+      context: .
+    network_mode: "host"
+    tty: true
+    stdin_open: true
+    privileged: true
+    volumes:
+      - ./:/opt/netfind/
+      - /var/run/dbus:/var/run/dbus
