@@ -138,10 +138,15 @@ class DiscoverCommand extends Command
                 $device["status"] = sprintf("<error>down</error>");
             }
 
+            if (trim(`whoami`) !== 'root') {
+                $this->warn("To be able to collect mac address and manufacturer info this program must run as root!");
+                sleep(10);
+            }
+
             foreach ($interfaces as $interface) {
                 $matches = null;
                 if (preg_match('/inet ([0-9\.\/]+)/', trim(`ip address show dev $interface | grep inet`), $matches)) {
-                    $results = explode("\n", trim(`nmap -sP -n -e $interface {$matches[1]}`));
+                    $results = explode("\n", trim(`nmap -P -sP {$matches[1]}`));
                     while (!str_starts_with(current($results), "Nmap done:")) {
                         if (empty(current($results))) {
                             exit;
@@ -152,13 +157,16 @@ class DiscoverCommand extends Command
                             continue;
                         }
 
-                        preg_match("/([\.0-9]+)/", current($results), $matches);
-                        $ip = $matches[1];
+                        preg_match("/Nmap scan report for" .
+                            "\s?(.*) \(?([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{0,3}\.[0-9]{1,3})\)?/",
+                            current($results), $matches);
+                        $hostname = $matches[1];
+                        $ip = $matches[2];
                         next($results);
                         preg_match("/Host is (\w+)/", current($results), $matches);
                         $status = $matches[1];
                         next($results);
-                        if (preg_match('/([0-9A-F:]+) \((.*)\)/', current($results), $matches)) {
+                        if (preg_match('/MAC Address: ([0-9A-F:]+) \((.*)\)/', current($results), $matches)) {
                             $mac = $matches[1];
                             $manufacturer = $matches[2];
                             next($results);
@@ -176,6 +184,7 @@ class DiscoverCommand extends Command
                                 "status" => $status,
                                 "interface" => $interface,
                                 "ip" => $ip,
+                                "hostname" => $hostname,
                                 "manufacturer" => $manufacturer,
                             ];
                         } else {
@@ -183,13 +192,15 @@ class DiscoverCommand extends Command
                                 ? $status
                                 : sprintf("<error>%s</error>",$status);
                             $devices[$key]["ip"] = $ip;
+                            $devices[$key]["hostname"] = $hostname;
                         }
                     }
                 }
             }
             system('clear');
             $this->info(Carbon::now()->format('Y-m-d H:i:s'),OutputInterface::VERBOSITY_VERBOSE);
-            $this->table(["Mac Address","Discovered at","Status","Interface","Ip Address","Manufacturer"],$devices);
+            $this->table(["Mac Address","Discovered at","Status","Interface","Ip Address","Hostname","Manufacturer"],
+                $devices);
             $this->info("Press CTRL+C to terminate execution");
 
             usleep($this->option('delay') * 1000);
