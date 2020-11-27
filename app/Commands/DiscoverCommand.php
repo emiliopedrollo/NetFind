@@ -143,7 +143,12 @@ class DiscoverCommand extends Command
                 sleep(10);
             }
 
+            $routers = [];
+
             foreach ($interfaces as $interface) {
+                $routers[$interface] = explode("\n",
+                    `route -n | grep "$interface" | awk '{print $2}' | grep -v "0.0.0.0"`
+                );
                 $matches = null;
                 if (preg_match('/inet ([0-9\.\/]+)/', trim(`ip address show dev $interface | grep inet`), $matches)) {
                     $results = explode("\n", trim(`nmap -P -sP {$matches[1]}`));
@@ -162,6 +167,7 @@ class DiscoverCommand extends Command
                             current($results), $matches);
                         $hostname = $matches[1];
                         $ip = $matches[2];
+                        $router = in_array($ip,$routers[$interface]);
                         next($results);
                         preg_match("/Host is (\w+)/", current($results), $matches);
                         $status = $matches[1];
@@ -186,6 +192,7 @@ class DiscoverCommand extends Command
                                 "ip" => $ip,
                                 "hostname" => $hostname,
                                 "manufacturer" => $manufacturer,
+                                "router" => $router
                             ];
                         } else {
                             $devices[$key]["status"] = $status == "up"
@@ -199,8 +206,9 @@ class DiscoverCommand extends Command
             }
             system('clear');
             $this->info(Carbon::now()->format('Y-m-d H:i:s'),OutputInterface::VERBOSITY_VERBOSE);
-            $this->table(["Mac Address","Discovered at","Status","Interface","Ip Address","Hostname","Manufacturer"],
-                $devices);
+            $this->table([
+                "Mac Address","Discovered at","Status","Interface","Ip Address","Hostname","Manufacturer","Router"
+            ],$devices);
             $this->info("Press CTRL+C to terminate execution");
 
             usleep($this->option('delay') * 1000);
