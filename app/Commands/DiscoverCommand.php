@@ -167,6 +167,7 @@ class DiscoverCommand extends Command
                             current($results), $matches);
                         $hostname = $matches[1];
                         $ip = $matches[2];
+                        $snmp = trim(`nmap -sU -p 161 $ip | grep 161/udp | awk '{print $2}'`) === 'open';
                         $router = in_array($ip,$routers[$interface]);
                         next($results);
                         preg_match("/Host is (\w+)/", current($results), $matches);
@@ -192,6 +193,7 @@ class DiscoverCommand extends Command
                                 "ip" => $ip,
                                 "hostname" => $hostname,
                                 "manufacturer" => $manufacturer,
+                                "snmp" => $snmp,
                                 "router" => $router
                             ];
                         } else {
@@ -200,6 +202,7 @@ class DiscoverCommand extends Command
                                 : sprintf("<error>%s</error>",$status);
                             $devices[$key]["ip"] = $ip;
                             $devices[$key]["hostname"] = $hostname;
+                            $devices[$key]["snmp"] = $snmp;
                         }
                     }
                 }
@@ -207,7 +210,7 @@ class DiscoverCommand extends Command
             system('clear');
             $this->info(Carbon::now()->format('Y-m-d H:i:s'),OutputInterface::VERBOSITY_VERBOSE);
             $this->table([
-                "Mac Address","Discovered at","Status","Interface","Ip Address","Hostname","Manufacturer","Router"
+                "Mac Address","Discovered at","Status","Interface","Ip Address","Hostname","Manufacturer","SNMP","Router"
             ],$devices);
             $this->info("Press CTRL+C to terminate execution");
 
